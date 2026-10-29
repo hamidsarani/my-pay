@@ -118,7 +118,16 @@ export function stats() {
   const month = sum(since(30))
   const today = sum(new Date(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' }) + 'T00:00:00+03:30').toISOString())
   const links = listLinks(100000)
+  // دریافتی روزانه‌ی ۱۴ روز اخیر به روز تهران، برای نمودار پنل
+  const tehranDay = (d) => new Date(d).toLocaleDateString('en-CA', { timeZone: 'Asia/Tehran' })
+  const days = Array.from({ length: 14 }, (_, i) => tehranDay(Date.now() - (13 - i) * 864e5))
+  const byDay = Object.fromEntries(days.map((d) => [d, 0]))
+  for (const p of db.prepare("select paid_at, amount from payments where status = 'paid' and paid_at >= ?").all(new Date(`${days[0]}T00:00:00+03:30`).toISOString())) {
+    const d = tehranDay(p.paid_at)
+    if (d in byDay) byDay[d] += p.amount
+  }
   return {
+    series: days.map((day) => ({ day, sum: byDay[day] })),
     total_sum: all.total, total_count: all.count,
     month_sum: month.total, month_count: month.count,
     today_sum: today.total, today_count: today.count,

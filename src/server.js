@@ -1,5 +1,6 @@
 import http from 'node:http'
 import { readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { PORT, PUBLIC_URL, PAY_PROXY_URL, MIN_AMOUNT, OWNER } from './config.js'
 import * as store from './db.js'
 import { requestPayment, verifyPayment, mock } from './zarinpal.js'
@@ -8,7 +9,9 @@ import { payPage, resultPage, statePage, mockPage, BASE_CSS } from './pages.js'
 import { notifyPaid, startBot } from './telegram.js'
 import { toNumber, normalizePhone } from './format.js'
 
-const ADMIN_HTML = readFileSync(new URL('../public/admin.html', import.meta.url))
+// نسخه‌ی CSS در آدرسش، تا بعد از هر دیپلوی کش مرورگر نسخه‌ی قدیمی رو نگه نداره
+const CSS_VERSION = createHash('sha1').update(BASE_CSS).digest('hex').slice(0, 10)
+const ADMIN_HTML = readFileSync(new URL('../public/admin.html', import.meta.url), 'utf8').replace('/base.css', `/base.css?v=${CSS_VERSION}`)
 
 class HttpError extends Error {
   constructor(status, message) { super(message); this.status = status }
@@ -140,7 +143,7 @@ const server = http.createServer(async (req, res) => {
       return html(res, payPage(store.homeLink(), { home: true }))
     }
     if (path === '/admin') return send(res, 200, ADMIN_HTML, 'text/html; charset=utf-8', { 'Cache-Control': 'no-cache' })
-    if (path === '/base.css') return send(res, 200, BASE_CSS, 'text/css; charset=utf-8', { 'Cache-Control': 'public, max-age=3600' })
+    if (path === '/base.css') return send(res, 200, BASE_CSS, 'text/css; charset=utf-8', { 'Cache-Control': 'public, max-age=31536000, immutable' })
     if (path === '/health') return json(res, { ok: true, gateway: mock ? 'mock' : 'zarinpal', proxy: PAY_PROXY_URL || null })
     if (path === '/cb') return await callback(res, url.searchParams)
     const p = path.match(/^\/p\/([a-z0-9]{4,16})$/)

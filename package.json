@@ -1,0 +1,14 @@
+{
+  "name": "my-pay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "صفحه‌ی پرداخت شخصی با لینک پرداخت، پنل ادمین و ربات تلگرام؛ درگاه زرین‌پال از طریق checkout.vpsbaz.ir",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/server.js",
+    "dev": "node --disable-warning=ExperimentalWarning --watch src/server.js"
+  }
+}

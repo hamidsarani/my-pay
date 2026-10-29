@@ -58,6 +58,10 @@ h1{font-size:21px;margin:0 0 6px;font-weight:800;letter-spacing:-.2px}
 .btn.ghost{background:var(--card-2);box-shadow:none;border:1px solid var(--line);color:var(--ink)}.btn.ghost::after{display:none}
 .btn[disabled]{opacity:.7;pointer-events:none}
 .foot{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:16px;font-size:12px;color:var(--faint)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:-2px 0 14px}
+.chips button{border:1px solid var(--line);background:var(--card-2);color:var(--ink);font:inherit;font-size:13px;padding:6px 14px;border-radius:999px;cursor:pointer;transition:.2s}
+.chips button:hover{border-color:rgba(139,92,246,.6);background:rgba(139,92,246,.15)}
+textarea.input{resize:vertical;min-height:52px}
 .err{background:rgba(251,113,133,.1);border:1px solid rgba(251,113,133,.3);color:#fecdd3;border-radius:14px;padding:10px 14px;font-size:13.5px;margin-bottom:14px}
 .state{text-align:center;padding-top:6px}
 .badge-ic{width:92px;height:92px;margin:4px auto 18px;border-radius:50%;display:grid;place-items:center;position:relative}
@@ -98,24 +102,33 @@ const ICONS = {
 const ownerRow = () => `<div class="owner"><div class="avatar">${esc(OWNER.trim()[0] ?? 'پ')}</div>
   <div><b>${esc(OWNER)}</b><small>درخواست پرداخت</small></div><span class="chip">${LOCK} پرداخت امن</span></div>`
 
-export function payPage(link, { error = '', values = {} } = {}) {
+/** home = صفحه‌ی اصلی: هر کسی مبلغ و توضیح رو خودش می‌نویسه. */
+export function payPage(link, { error = '', values = {}, home = false } = {}) {
   const fixed = link.amount != null
-  const title = link.title || 'پرداخت'
-  return layout(`${title} — ${OWNER}`, `<form class="card" method="post" id="f" novalidate>
+  const title = home ? `پرداخت به ${OWNER}` : link.title || 'پرداخت'
+  const description = home ? 'مبلغ و بابتش رو بنویس و از درگاه امن زرین‌پال پرداخت کن.' : link.description
+  const noteField = home
+    ? `<div class="field"><label for="note">بابت</label><textarea class="input" id="note" name="note" rows="2" maxlength="200" placeholder="مثلاً هزینه‌ی مشاوره">${esc(values.note)}</textarea></div>`
+    : `<div class="field"><label for="note">توضیح برای ${esc(OWNER.split(' ')[0])}</label><input class="input" id="note" name="note" maxlength="200" placeholder="اختیاری" value="${esc(values.note)}"></div>`
+  const chips = home
+    ? `<div class="chips">${[100000, 200000, 500000, 1000000].map((n) => `<button type="button" data-n="${n}">${fa(n)}</button>`).join('')}</div>`
+    : ''
+  return layout(home ? title : `${title} — ${OWNER}`, `<form class="card" method="post" id="f" novalidate>
   ${ownerRow()}
   <h1>${esc(title)}</h1>
-  ${link.description ? `<p class="desc">${esc(link.description)}</p>` : ''}
+  ${description ? `<p class="desc">${esc(description)}</p>` : ''}
   ${error ? `<div class="err">${esc(error)}</div>` : ''}
   ${fixed
     ? `<div class="amount-box"><div class="label">مبلغ قابل پرداخت</div><div class="amount">${fa(link.amount)}<small>تومان</small></div><div class="words">${tomanWords(link.amount)}</div></div>`
     : `<div class="field" style="margin-top:18px"><label for="amount">مبلغ (تومان)</label>
        <input class="input big" id="amount" name="amount" inputmode="numeric" autocomplete="off" placeholder="مثلاً ۵۰۰٬۰۰۰" value="${esc(values.amount)}" required>
-       <div class="words" id="words" style="text-align:center;margin-top:6px">حداقل ${fa(MIN_AMOUNT)} تومان</div></div>`}
+       <div class="words" id="words" style="text-align:center;margin-top:6px">حداقل ${fa(MIN_AMOUNT)} تومان</div></div>${chips}`}
+  ${home ? noteField : ''}
   <div class="row">
     <div class="field"><label for="name">نام شما</label><input class="input" id="name" name="name" maxlength="80" autocomplete="name" placeholder="اختیاری" value="${esc(values.name)}"></div>
     <div class="field"><label for="phone">موبایل</label><input class="input" id="phone" name="phone" inputmode="tel" maxlength="14" autocomplete="tel" placeholder="اختیاری" dir="ltr" style="text-align:right" value="${esc(values.phone)}"></div>
   </div>
-  <div class="field"><label for="note">توضیح برای ${esc(OWNER.split(' ')[0])}</label><input class="input" id="note" name="note" maxlength="200" placeholder="اختیاری" value="${esc(values.note)}"></div>
+  ${home ? '' : noteField}
   <button class="btn" id="go">${LOCK.replace(/14/g, '18')} <span id="go-t">${fixed ? `پرداخت ${fa(link.amount)} تومان` : 'ادامه و پرداخت'}</span></button>
   <div class="foot">${LOCK} اتصال مستقیم به درگاه امن زرین‌پال</div>
 </form>
@@ -127,6 +140,7 @@ function words(n){const p=[],b=Math.floor(n/1e9),m=Math.floor(n%1e9/1e6),k=Math.
   if(b)p.push(fa(b)+' میلیارد');if(m)p.push(fa(m)+' میلیون');if(k)p.push(fa(k)+' هزار');if(r)p.push(fa(r));return p.join(' و ')+' تومان'}
 if(a){a.addEventListener('input',()=>{const n=Number(en(a.value));a.value=n?fa(n):'';w.textContent=n?words(n):'حداقل ${fa(MIN_AMOUNT)} تومان';
   document.getElementById('go-t').textContent=n?'پرداخت '+fa(n)+' تومان':'ادامه و پرداخت'});a.dispatchEvent(new Event('input'))}
+document.querySelectorAll('.chips button').forEach(b=>b.onclick=()=>{a.value=b.dataset.n;a.dispatchEvent(new Event('input'))});
 f.addEventListener('submit',e=>{if(a&&Number(en(a.value))<${MIN_AMOUNT}){e.preventDefault();a.focus();w.style.color='var(--bad)';return}
   go.disabled=true;document.getElementById('go-t').textContent='در حال اتصال به درگاه…'});
 </script>`)
@@ -142,7 +156,7 @@ export function resultPage(p) {
     return statePage({
       kind: 'bad', title: 'پرداخت انجام نشد',
       text: 'اگه مبلغی از حسابتون کم شده، حداکثر تا ۷۲ ساعت خودکار برمی‌گرده.',
-      action: p.link_code ? `<a class="btn" href="/p/${esc(p.link_code)}">تلاش دوباره</a>` : '',
+      action: p.link_code ? `<a class="btn" href="${p.link_code === 'home' ? '/' : `/p/${esc(p.link_code)}`}">تلاش دوباره</a>` : '',
     })
   }
   const colors = ['#8b5cf6', '#22d3ee', '#f472b6', '#34d399', '#fbbf24']

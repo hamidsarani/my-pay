@@ -61,13 +61,15 @@ async function startPay(req, res, code) {
   const values = { amount: body.amount ?? '', name: (body.name ?? '').trim().slice(0, 80), phone: (body.phone ?? '').trim(), note: (body.note ?? '').trim().slice(0, 200) }
   const amount = link.amount ?? Math.floor(toNumber(values.amount))
   const phone = normalizePhone(values.phone)
-  const fail = (error) => html(res, payPage(link, { error, values }), 400)
+  const home = link.code === store.HOME_CODE
+  const fail = (error) => html(res, payPage(link, { error, values, home }), 400)
   if (!Number.isFinite(amount) || amount < MIN_AMOUNT) return fail(`مبلغ باید حداقل ${MIN_AMOUNT.toLocaleString('fa-IR')} تومان باشه`)
   if (amount > 200_000_000) return fail('مبلغ بیشتر از سقف درگاهه')
   if (values.phone && !phone) return fail('شماره موبایل درست نیست')
   let pay
   try {
-    pay = await requestPayment({ amount, mobile: phone, description: [link.title || `پرداخت به ${OWNER}`, values.name].filter(Boolean).join(' — ') })
+    const about = home ? values.note || `پرداخت به ${OWNER}` : link.title || `پرداخت به ${OWNER}`
+    pay = await requestPayment({ amount, mobile: phone, description: [about, values.name].filter(Boolean).join(' — ') })
   } catch {
     return fail('اتصال به درگاه برقرار نشد؛ چند لحظه دیگه دوباره امتحان کن')
   }
@@ -133,7 +135,10 @@ const server = http.createServer(async (req, res) => {
   const path = url.pathname.replace(/\/+$/, '') || '/'
   try {
     if (path.startsWith('/api/')) return await apiRoute(req, res, path)
-    if (path === '/') return redirect(res, '/admin')
+    if (path === '/') {
+      if (req.method === 'POST') return await startPay(req, res, store.HOME_CODE)
+      return html(res, payPage(store.homeLink(), { home: true }))
+    }
     if (path === '/admin') return send(res, 200, ADMIN_HTML, 'text/html; charset=utf-8', { 'Cache-Control': 'no-cache' })
     if (path === '/base.css') return send(res, 200, BASE_CSS, 'text/css; charset=utf-8', { 'Cache-Control': 'public, max-age=3600' })
     if (path === '/health') return json(res, { ok: true, gateway: mock ? 'mock' : 'zarinpal', proxy: PAY_PROXY_URL || null })
@@ -159,6 +164,7 @@ const server = http.createServer(async (req, res) => {
   }
 })
 
+store.homeLink()
 server.listen(PORT, () => {
   console.log(`my-pay on :${PORT} · ${PUBLIC_URL} · gateway: ${mock ? 'mock' : 'zarinpal'}${PAY_PROXY_URL ? ` via ${PAY_PROXY_URL}` : ''}`)
   startBot()

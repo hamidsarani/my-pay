@@ -66,7 +66,17 @@ export function createLink({ title = '', description = '', amount = null, single
 
 export const getLink = (id) => decorate(db.prepare(`${LINK_SELECT} where l.id = ?`).get(id))
 export const getLinkByCode = (code) => decorate(db.prepare(`${LINK_SELECT} where l.code = ?`).get(code))
-export const listLinks = (limit = 100) => db.prepare(`${LINK_SELECT} order by l.id desc limit ?`).all(limit).map(decorate)
+// صفحه‌ی اصلی (/) یه لینک ثابت با مبلغ آزاد و چندبار مصرفه؛ توی لیست لینک‌ها نمیاد
+export const HOME_CODE = 'home'
+export const listLinks = (limit = 100) =>
+  db.prepare(`${LINK_SELECT} where l.code != ? order by l.id desc limit ?`).all(HOME_CODE, limit).map(decorate)
+
+export function homeLink() {
+  const l = getLinkByCode(HOME_CODE)
+  if (l) return l
+  db.prepare('insert into links (code, title, amount, single_use, created_at) values (?, ?, null, 0, ?)').run(HOME_CODE, 'پرداخت مستقیم', now())
+  return getLinkByCode(HOME_CODE)
+}
 
 export function setLinkActive(id, active) {
   db.prepare('update links set active = ? where id = ?').run(active ? 1 : 0, id)
